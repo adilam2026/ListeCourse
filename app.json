@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "ListeCourse",
+    "slug": "ListeCourse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "listecourse",
+    "userInterfaceStyle": "light",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ListeCourse a besoin d'accéder à vos photos pour illustrer les produits du catalogue.",
+          "cameraPermission": "ListeCourse a besoin de la caméra pour prendre en photo un produit du catalogue."
+        }
+      ]
+    ]
+  }
+}
