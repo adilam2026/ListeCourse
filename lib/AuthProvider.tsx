@@ -2,12 +2,16 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Household, HouseholdMember } from './database.types';
+import { consumePendingHousehold } from './pendingHousehold';
 
 interface AuthContextValue {
   loading: boolean;
   session: Session | null;
   household: Household | null;
   member: HouseholdMember | null;
+  isAdmin: boolean;
+  isResponsable: boolean;
+  isPersonnel: boolean;
   refreshHousehold: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -29,6 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (!memberRow) {
+      // Cas typique : l'admin fondateur vient de confirmer son email et se
+      // connecte pour la première fois — le foyer n'a pas encore pu être
+      // créé au moment du signUp() (pas de session tant que non confirmé).
+      const pending = await consumePendingHousehold();
+      if (pending) {
+        const { data: created } = await supabase.rpc('create_household', {
+          p_name: pending.householdName,
+          p_display_name: pending.displayName,
+        });
+        if (created) {
+          return loadHousehold(userId);
+        }
+      }
       setMember(null);
       setHousehold(null);
       return;
@@ -73,6 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       household,
       member,
+      isAdmin: member?.role === 'admin',
+      isResponsable: member?.role === 'responsable',
+      isPersonnel: member?.role === 'personnel',
       refreshHousehold: async () => {
         if (session?.user) await loadHousehold(session.user.id);
       },

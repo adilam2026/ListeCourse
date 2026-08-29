@@ -1,82 +1,46 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { getRememberedInviteCode } from '../lib/deviceHousehold';
 import { colors, fonts } from '../lib/theme';
-import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
 
-export default function LoginScreen() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function LoginChooserScreen() {
+  const [rememberedCode, setRememberedCode] = useState<string | null>(null);
 
-  async function submit() {
-    setError(null);
-    if (!email.trim() || !password) {
-      setError('Merci de renseigner un email et un mot de passe.');
-      return;
-    }
-    setLoading(true);
-    const { error: authError } =
-      mode === 'signin'
-        ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
-        : await supabase.auth.signUp({ email: email.trim(), password });
-    setLoading(false);
-    if (authError) setError(authError.message);
-    // La navigation se fait automatiquement via onAuthStateChange + app/index.tsx
-  }
+  useEffect(() => {
+    getRememberedInviteCode().then(setRememberedCode);
+  }, []);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.brand}>ListeCourse</Text>
-        <Text style={styles.title}>{mode === 'signin' ? 'Connexion' : 'Créer un compte'}</Text>
-        <Text style={styles.subtitle}>
-          {mode === 'signin'
-            ? 'Retrouvez la liste de courses de votre foyer.'
-            : 'Un compte par personne du foyer.'}
-        </Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.brand}>ListeCourse</Text>
+      <Text style={styles.title}>Se connecter</Text>
+      <Text style={styles.subtitle}>
+        La liste de courses partagée de votre foyer, synchronisée en temps réel.
+      </Text>
 
-        <View style={{ marginTop: 24 }}>
-          <FormField
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholder="vous@exemple.com"
-          />
-          <FormField
-            label="Mot de passe"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="••••••••"
-          />
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.actions}>
+        <PrimaryButton
+          label="J'ai déjà un accès"
+          onPress={() => router.push('/acces-existant')}
+        />
+        {rememberedCode ? (
+          <Text style={styles.hint}>Foyer mémorisé sur cet appareil : {rememberedCode}</Text>
+        ) : null}
 
         <PrimaryButton
-          label={mode === 'signin' ? 'Se connecter' : "S'inscrire"}
-          onPress={submit}
-          loading={loading}
-          style={{ marginTop: 4 }}
+          label="Créer un nouveau foyer"
+          variant="outline"
+          onPress={() => router.push('/creer-foyer')}
+          style={{ marginTop: 22 }}
         />
-
-        <Text
-          style={styles.switchMode}
-          onPress={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-        >
-          {mode === 'signin' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
+        <Text style={styles.hint}>
+          À réserver à la première personne qui met en place le foyer — les autres membres
+          utilisent l'accès que cette personne leur crée.
         </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -96,26 +60,24 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 26,
+    fontSize: 28,
     color: colors.text,
   },
   subtitle: {
     fontFamily: fonts.body,
     fontSize: 14.5,
     color: colors.textSoft,
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 21,
   },
-  error: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-    color: '#C23B3B',
-    marginBottom: 12,
+  actions: {
+    marginTop: 36,
   },
-  switchMode: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13.5,
-    color: colors.accent,
-    textAlign: 'center',
-    marginTop: 18,
+  hint: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: colors.textSoft,
+    marginTop: 10,
+    lineHeight: 18,
   },
 });

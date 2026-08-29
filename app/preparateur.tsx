@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,7 +19,7 @@ import ProductPhoto from '../components/ProductPhoto';
 
 export default function PreparateurScreen() {
   const insets = useSafeAreaInsets();
-  const { household, member } = useAuth();
+  const { household, signOut } = useAuth();
   const { list, categories, products, items, loading, error, setItems } = useShoppingList(household?.id);
   const [query, setQuery] = useState('');
   const [freeItemText, setFreeItemText] = useState('');
@@ -132,11 +131,9 @@ export default function PreparateurScreen() {
             <Text style={styles.title}>Courses du jour</Text>
             <Text style={styles.date}>{dateLabel}</Text>
           </View>
-          {member?.is_admin ? (
-            <Pressable onPress={() => router.push('/admin/catalogue')} hitSlop={10}>
-              <Text style={styles.adminLink}>Admin</Text>
-            </Pressable>
-          ) : null}
+          <Pressable onPress={signOut} hitSlop={10}>
+            <Text style={styles.adminLink}>Déconnexion</Text>
+          </Pressable>
         </View>
 
         <View style={styles.searchBar}>

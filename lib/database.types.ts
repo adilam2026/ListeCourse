@@ -3,12 +3,14 @@
 // `supabase gen types typescript` une fois le projet provisionné).
 
 export type ListStatus = 'brouillon' | 'a_acheter' | 'traitee';
+export type HouseholdRole = 'admin' | 'responsable' | 'personnel';
 
 export interface Household {
   id: string;
   name: string;
   timezone: string;
   invite_code: string;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -17,8 +19,9 @@ export interface HouseholdMember {
   household_id: string;
   user_id: string;
   display_name: string;
-  can_prepare: boolean;
-  is_admin: boolean;
+  username: string | null;
+  role: HouseholdRole;
+  active: boolean;
   created_at: string;
 }
 
@@ -81,9 +84,9 @@ export interface Database {
     Functions: {
       get_or_create_today_list: { Args: { p_household_id: string }; Returns: ShoppingList };
       create_household: { Args: { p_name: string; p_display_name: string }; Returns: Household };
-      join_household: {
-        Args: { p_invite_code: string; p_display_name: string; p_can_prepare: boolean };
-        Returns: Household;
+      resolve_login_email: {
+        Args: { p_invite_code: string; p_username: string };
+        Returns: string | null;
       };
       seed_default_catalog: { Args: { p_household_id: string }; Returns: void };
     };

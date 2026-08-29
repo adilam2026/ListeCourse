@@ -7,7 +7,9 @@ import { ChevronRightIcon } from '../../components/CategoryIcon';
 
 export default function PlusScreen() {
   const insets = useSafeAreaInsets();
-  const { household, member, signOut } = useAuth();
+  const { household, member, isAdmin, signOut } = useAuth();
+
+  const roleLabel = member?.role === 'admin' ? 'Administrateur' : member?.role === 'responsable' ? 'Responsable du foyer' : 'Personnel de maison';
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 40 }}>
@@ -21,20 +23,26 @@ export default function PlusScreen() {
           <Text style={styles.value}>{household?.name}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Code d'invitation</Text>
+          <Text style={styles.label}>Code du foyer</Text>
           <Text style={styles.value}>{household?.invite_code}</Text>
         </View>
         <View style={[styles.row, styles.rowLast]}>
           <Text style={styles.label}>Vous</Text>
-          <Text style={styles.value}>{member?.display_name}</Text>
+          <Text style={styles.value}>{member?.display_name} · {roleLabel}</Text>
         </View>
       </View>
 
-      {member?.is_admin ? (
-        <Pressable style={styles.linkCard} onPress={() => router.push('/admin/catalogue')}>
-          <Text style={styles.linkLabel}>Administration du catalogue</Text>
-          <ChevronRightIcon />
-        </Pressable>
+      {isAdmin ? (
+        <>
+          <Pressable style={styles.linkCard} onPress={() => router.push('/admin/utilisateurs')}>
+            <Text style={styles.linkLabel}>Utilisateurs du foyer</Text>
+            <ChevronRightIcon />
+          </Pressable>
+          <Pressable style={styles.linkCard} onPress={() => router.push('/admin/catalogue')}>
+            <Text style={styles.linkLabel}>Catalogue et catégories</Text>
+            <ChevronRightIcon />
+          </Pressable>
+        </>
       ) : null}
 
       <Pressable style={styles.signOut} onPress={signOut}>
