@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { getRememberedInviteCode } from '../lib/deviceHousehold';
 import { colors, fonts } from '../lib/theme';
@@ -39,6 +39,10 @@ export default function LoginChooserScreen() {
           À réserver à la première personne qui met en place le foyer — les autres membres
           utilisent l'accès que cette personne leur crée.
         </Text>
+
+        <Pressable onPress={() => router.push('/connexion-email')} hitSlop={8} style={{ marginTop: 26, alignSelf: 'center' }}>
+          <Text style={styles.adminLoginLink}>Déjà administrateur d'un foyer ? Se connecter avec votre email</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -79,5 +83,11 @@ const styles = StyleSheet.create({
     color: colors.textSoft,
     marginTop: 10,
     lineHeight: 18,
+  },
+  adminLoginLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12.5,
+    color: colors.accent,
+    textAlign: 'center',
   },
 });

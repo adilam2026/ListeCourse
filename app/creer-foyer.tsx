@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthProvider';
 import { setPendingHousehold } from '../lib/pendingHousehold';
 import { colors, fonts } from '../lib/theme';
 import FormField from '../components/FormField';
@@ -11,6 +12,7 @@ import { BackIcon } from '../components/CategoryIcon';
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function CreerFoyerScreen() {
+  const { refreshHousehold } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +61,11 @@ export default function CreerFoyerScreen() {
         setError(createError.message);
         return;
       }
+      // Le foyer vient d'être créé en base : le contexte auth (chargé au
+      // moment du signUp, quand aucun foyer n'existait encore) est
+      // désormais périmé. Sans ce rafraîchissement, l'écran suivant se
+      // baserait sur un état "aucun foyer" obsolète.
+      await refreshHousehold();
       router.replace('/');
       return;
     }
