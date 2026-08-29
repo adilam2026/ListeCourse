@@ -39,7 +39,8 @@
           "photosPermission": "ListeCourse a besoin d'accéder à vos photos pour illustrer les produits du catalogue.",
           "cameraPermission": "ListeCourse a besoin de la caméra pour prendre en photo un produit du catalogue."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "router": {},
