@@ -10,7 +10,7 @@ set search_path = public
 as $$
 declare
   v_cat_id uuid;
-  v_categories jsonb := '[
+  v_categories jsonb := $json$[
     {"name": "Légumes", "icon": "legumes", "products": ["Tomates","Pommes de terre","Oignons","Carottes","Courgettes","Aubergines","Poivrons","Concombres","Laitue","Coriandre","Persil","Menthe","Ail","Citron","Navets","Petits pois","Haricots verts","Chou","Chou-fleur","Brocoli"]},
     {"name": "Fruits", "icon": "fruits", "products": ["Bananes","Pommes","Oranges","Mandarines","Fraises","Raisins","Pastèque","Melon","Pêches","Nectarines","Poires","Kiwi","Mangue","Avocat","Dattes"]},
     {"name": "Produits laitiers", "icon": "dairy", "products": ["Lait","Yaourts","Fromage","Beurre","Crème fraîche","Fromage à tartiner"]},
@@ -22,7 +22,7 @@ declare
     {"name": "Produits ménagers", "icon": "household", "products": ["Liquide vaisselle","Tablettes lave-vaisselle","Produit sol","Eau de Javel","Lessive","Adoucissant","Nettoyant vitres","Éponges","Sacs-poubelle","Papier aluminium","Film alimentaire","Papier cuisson"]},
     {"name": "Hygiène", "icon": "hygiene", "products": ["Papier toilette","Mouchoirs","Savon mains","Gel douche","Shampooing","Dentifrice","Brosses à dents","Déodorant","Coton","Lingettes"]},
     {"name": "Enfants", "icon": "children", "products": ["Couches","Lait enfant","Compotes","Biscuits","Yaourts enfants","Céréales enfants","Goûters"]}
-  ]'::jsonb;
+  ]$json$::jsonb;
   v_cat jsonb;
   v_product text;
   v_cat_order integer := 0;
