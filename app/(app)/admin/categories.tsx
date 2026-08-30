@@ -10,12 +10,12 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/AuthProvider';
-import { supabase } from '../../lib/supabase';
-import { colors, fonts, radii } from '../../lib/theme';
-import type { Category } from '../../lib/database.types';
-import { AdminHeader } from '../../components/AdminHeader';
-import CategoryIcon, { PlusIcon } from '../../components/CategoryIcon';
+import { useAuth } from '../../../lib/AuthProvider';
+import { supabase } from '../../../lib/supabase';
+import { colors, fonts, radii } from '../../../lib/theme';
+import type { Category } from '../../../lib/database.types';
+import { AdminHeader } from '../../../components/AdminHeader';
+import CategoryIcon, { PlusIcon } from '../../../components/CategoryIcon';
 import Svg, { Path } from 'react-native-svg';
 
 const ICON_OPTIONS = [

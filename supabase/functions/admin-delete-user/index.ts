@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const { data: member } = await admin
       .from('household_members')
       .select('id')
-      .eq('user_id', member_user_id)
+      .eq('profile_id', member_user_id)
       .eq('household_id', household_id)
       .maybeSingle();
 

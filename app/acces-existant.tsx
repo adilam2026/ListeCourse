@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { getRememberedInviteCode, setRememberedInviteCode } from '../lib/deviceHousehold';
+import { getRememberedHouseholdCode, setRememberedHouseholdCode } from '../lib/deviceHousehold';
 import { colors, fonts, radii } from '../lib/theme';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
@@ -17,13 +17,18 @@ export default function AccesExistantScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getRememberedInviteCode().then((code) => {
+    getRememberedHouseholdCode().then((code) => {
       if (code) {
         setRememberedCode(code);
         setInviteCode(code);
       }
     });
   }, []);
+
+  // Message volontairement identique quel que soit le point d'échec (foyer
+  // inexistant, identifiant inexistant, mot de passe incorrect) : ne jamais
+  // laisser un attaquant déduire quelle partie de la combinaison est fausse.
+  const GENERIC_ERROR = 'Identifiants incorrects.';
 
   async function submit() {
     setError(null);
@@ -41,7 +46,8 @@ export default function AccesExistantScreen() {
 
     if (resolveError || !email) {
       setLoading(false);
-      setError('Foyer, identifiant ou mot de passe incorrect.');
+      console.log('[auth] secondary_login_failed', { reason: 'unresolved' });
+      setError(GENERIC_ERROR);
       return;
     }
 
@@ -49,11 +55,13 @@ export default function AccesExistantScreen() {
     setLoading(false);
 
     if (signInError) {
-      setError('Foyer, identifiant ou mot de passe incorrect.');
+      console.log('[auth] secondary_login_failed', { reason: 'bad_password' });
+      setError(GENERIC_ERROR);
       return;
     }
 
-    await setRememberedInviteCode(code);
+    console.log('[auth] secondary_login_succeeded');
+    await setRememberedHouseholdCode(code);
     router.replace('/');
   }
 
@@ -84,10 +92,10 @@ export default function AccesExistantScreen() {
           </View>
         ) : (
           <FormField
-            label="Foyer (code)"
+            label="Code du foyer"
             value={inviteCode}
             onChangeText={(t) => setInviteCode(t.toUpperCase())}
-            placeholder="A1B2C3"
+            placeholder="CASA-7K4M"
             autoCapitalize="characters"
           />
         )}

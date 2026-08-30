@@ -4,10 +4,14 @@ import { useAuth } from '../lib/AuthProvider';
 import { colors, fonts } from '../lib/theme';
 import PrimaryButton from '../components/PrimaryButton';
 
+// Point d'entrée unique : ne décide jamais lui-même des règles d'accès, il
+// se contente de traduire chaque état de la machine d'état centrale
+// (AuthProvider) en écran. Le garde (app)/_layout.tsx applique la même
+// règle pour toutes les routes protégées, quel que soit l'écran affiché.
 export default function Index() {
-  const { loading, session, household, member, isPersonnel, signOut } = useAuth();
+  const { status, errorMessage, retry, resendConfirmationEmail, signOut, isPersonnel } = useAuth();
 
-  if (loading) {
+  if (status === 'bootstrapping') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.accent} />
@@ -15,25 +19,41 @@ export default function Index() {
     );
   }
 
-  if (!session) return <Redirect href="/login" />;
+  if (status === 'signed_out') {
+    return <Redirect href="/login" />;
+  }
 
-  if (!household || !member) {
-    // Session valide mais aucun foyer rattaché : état incohérent rare
-    // (ex. compte supprimé côté admin entre-temps). On ne bloque pas
-    // silencieusement l'utilisateur.
+  if (status === 'needs_email_confirmation') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 16 }}>
         <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text, textAlign: 'center' }}>
-          Aucun foyer associé à ce compte
+          Confirmez votre email
         </Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.textSoft, textAlign: 'center' }}>
-          Votre accès a peut-être été retiré par un administrateur.
+          Ouvrez le lien reçu par email pour activer votre compte, puis reconnectez-vous.
         </Text>
-        <PrimaryButton label="Se déconnecter" onPress={signOut} />
+        <PrimaryButton label="Renvoyer l'email de confirmation" onPress={() => resendConfirmationEmail()} />
+        <PrimaryButton label="Se déconnecter" variant="outline" onPress={signOut} />
       </View>
     );
   }
 
+  if (status === 'needs_provisioning' || status === 'error') {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 16 }}>
+        <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text, textAlign: 'center' }}>
+          {status === 'needs_provisioning' ? 'Espace familial non initialisé' : 'Accès indisponible'}
+        </Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.textSoft, textAlign: 'center' }}>
+          {errorMessage ?? "Une erreur inattendue est survenue."}
+        </Text>
+        <PrimaryButton label="Réessayer" onPress={retry} />
+        <PrimaryButton label="Se déconnecter" variant="outline" onPress={signOut} />
+      </View>
+    );
+  }
+
+  // status === 'ready'
   if (isPersonnel) return <Redirect href="/preparateur" />;
   return <Redirect href="/(buyer)/courses" />;
 }

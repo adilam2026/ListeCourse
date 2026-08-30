@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/AuthProvider';
-import { supabase } from '../../lib/supabase';
-import { colors, fonts, radii } from '../../lib/theme';
-import type { HouseholdMember } from '../../lib/database.types';
-import { AdminHeader } from '../../components/AdminHeader';
-import { ChevronRightIcon, PlusIcon } from '../../components/CategoryIcon';
+import { useAuth } from '../../../lib/AuthProvider';
+import { supabase } from '../../../lib/supabase';
+import { colors, fonts, radii } from '../../../lib/theme';
+import type { HouseholdMember, Profile } from '../../../lib/database.types';
+
+type MemberRow = HouseholdMember & { profile: Profile | null };
+import { AdminHeader } from '../../../components/AdminHeader';
+import { ChevronRightIcon, PlusIcon } from '../../../components/CategoryIcon';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrateur',
@@ -18,7 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function UtilisateursScreen() {
   const insets = useSafeAreaInsets();
   const { household, member: currentMember } = useAuth();
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -26,10 +28,10 @@ export default function UtilisateursScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('household_members')
-      .select('*')
+      .select('*, profile:profiles(*)')
       .eq('household_id', household.id)
       .order('created_at');
-    setMembers(data ?? []);
+    setMembers((data as unknown as MemberRow[]) ?? []);
     setLoading(false);
   }, [household?.id]);
 
@@ -62,8 +64,8 @@ export default function UtilisateursScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowName}>
-                    {m.display_name}
-                    {m.user_id === currentMember?.user_id ? ' (vous)' : ''}
+                    {m.profile?.first_name ?? '—'}
+                    {m.profile_id === currentMember?.profile_id ? ' (vous)' : ''}
                   </Text>
                   <Text style={styles.rowMeta}>
                     {ROLE_LABELS[m.role] ?? m.role}

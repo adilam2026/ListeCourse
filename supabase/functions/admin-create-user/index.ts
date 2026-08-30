@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     if (!/^[a-z0-9._-]{2,32}$/.test(cleanUsername)) {
       return json({ error: 'invalid_username' }, 400);
     }
-    if (String(password).length < 4) {
+    if (String(password).length < 6) {
       return json({ error: 'password_too_short' }, 400);
     }
 
@@ -41,17 +41,26 @@ Deno.serve(async (req) => {
       return json({ error: isDup ? 'username_taken' : 'create_failed', detail: createError?.message }, 400);
     }
 
+    // Compensation si une étape suivante échoue : ne jamais laisser un
+    // compte auth orphelin (sans profil ni adhésion).
+    const { error: profileError } = await admin.from('profiles').insert({
+      id: created.user.id,
+      first_name: display_name,
+    });
+    if (profileError) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      return json({ error: 'member_insert_failed', detail: profileError.message }, 400);
+    }
+
     const { error: memberError } = await admin.from('household_members').insert({
       household_id,
-      user_id: created.user.id,
-      display_name,
+      profile_id: created.user.id,
       username: cleanUsername,
       role,
       active: true,
     });
 
     if (memberError) {
-      // Compensation : ne pas laisser un compte auth orphelin sans ligne foyer.
       await admin.auth.admin.deleteUser(created.user.id);
       const isDup = memberError.message?.toLowerCase().includes('duplicate');
       return json({ error: isDup ? 'username_taken' : 'member_insert_failed', detail: memberError.message }, 400);

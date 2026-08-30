@@ -30,9 +30,11 @@ export default function ConnexionEmailScreen() {
     });
     setLoading(false);
     if (signInError) {
+      console.log('[auth] admin_login_failed');
       setError('Email ou mot de passe incorrect.');
       return;
     }
+    console.log('[auth] admin_login_succeeded');
     router.replace('/');
   }
 

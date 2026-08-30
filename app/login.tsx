@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { getRememberedInviteCode } from '../lib/deviceHousehold';
+import { getRememberedHouseholdCode } from '../lib/deviceHousehold';
 import { colors, fonts } from '../lib/theme';
 import PrimaryButton from '../components/PrimaryButton';
 
@@ -9,7 +9,7 @@ export default function LoginChooserScreen() {
   const [rememberedCode, setRememberedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    getRememberedInviteCode().then(setRememberedCode);
+    getRememberedHouseholdCode().then(setRememberedCode);
   }, []);
 
   return (

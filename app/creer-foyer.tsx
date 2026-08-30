@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/AuthProvider';
-import { setPendingHousehold } from '../lib/pendingHousehold';
 import { colors, fonts } from '../lib/theme';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
@@ -11,8 +9,13 @@ import { BackIcon } from '../components/CategoryIcon';
 
 const MIN_PASSWORD_LENGTH = 6;
 
+// Le foyer n'est plus créé depuis le client (front → insert profile → insert
+// household → insert membership) : signUp() ne fait que transporter les
+// informations nécessaires en métadonnées. La création réelle du profil, du
+// foyer et de l'adhésion admin est une seule opération serveur idempotente
+// (ensure_provisioned(), appelée automatiquement par AuthProvider dès
+// qu'une session valide et confirmée existe).
 export default function CreerFoyerScreen() {
-  const { refreshHousehold } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,9 +41,16 @@ export default function CreerFoyerScreen() {
     }
 
     setLoading(true);
+    console.log('[auth] signup_initiated');
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        data: {
+          first_name: displayName.trim(),
+          household_name: householdName.trim(),
+        },
+      },
     });
     setLoading(false);
 
@@ -50,29 +60,15 @@ export default function CreerFoyerScreen() {
     }
 
     if (data.session) {
-      // Confirmation par email désactivée sur ce projet : session immédiate.
-      setLoading(true);
-      const { error: createError } = await supabase.rpc('create_household', {
-        p_name: householdName.trim(),
-        p_display_name: displayName.trim(),
-      });
-      setLoading(false);
-      if (createError) {
-        setError(createError.message);
-        return;
-      }
-      // Le foyer vient d'être créé en base : le contexte auth (chargé au
-      // moment du signUp, quand aucun foyer n'existait encore) est
-      // désormais périmé. Sans ce rafraîchissement, l'écran suivant se
-      // baserait sur un état "aucun foyer" obsolète.
-      await refreshHousehold();
+      // Cas rare (confirmation email désactivée côté projet) : session
+      // immédiate. AuthProvider détecte la session au prochain rendu et
+      // appelle lui-même ensure_provisioned() — aucune action ici.
       router.replace('/');
       return;
     }
 
-    // Confirmation par email requise : le foyer sera créé au premier login,
-    // une fois la session disponible (voir AuthProvider).
-    await setPendingHousehold({ displayName: displayName.trim(), householdName: householdName.trim() });
+    // Cas normal : confirmation email requise avant toute connexion. Le
+    // foyer sera provisionné au premier login réussi après confirmation.
     router.replace({ pathname: '/confirmez-email', params: { email: email.trim() } });
   }
 

@@ -10,13 +10,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/AuthProvider';
-import { supabase } from '../../lib/supabase';
-import { colors, fonts, radii } from '../../lib/theme';
-import type { Category, Product } from '../../lib/database.types';
-import { AdminHeader } from '../../components/AdminHeader';
-import { PlusIcon, SearchIcon, ChevronRightIcon } from '../../components/CategoryIcon';
-import ProductPhoto from '../../components/ProductPhoto';
+import { useAuth } from '../../../lib/AuthProvider';
+import { supabase } from '../../../lib/supabase';
+import { colors, fonts, radii } from '../../../lib/theme';
+import type { Category, Product } from '../../../lib/database.types';
+import { AdminHeader } from '../../../components/AdminHeader';
+import { PlusIcon, SearchIcon, ChevronRightIcon } from '../../../components/CategoryIcon';
+import ProductPhoto from '../../../components/ProductPhoto';
 
 type Filter = 'tous' | 'actifs' | 'desactives' | 'avec_photo' | 'sans_photo';
 

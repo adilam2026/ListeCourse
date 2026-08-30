@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../../lib/AuthProvider';
-import { supabase } from '../../../lib/supabase';
-import { adminDeleteUser, adminResetPassword } from '../../../lib/adminUsers';
-import { colors, fonts, radii } from '../../../lib/theme';
-import type { HouseholdMember, HouseholdRole } from '../../../lib/database.types';
-import PrimaryButton from '../../../components/PrimaryButton';
-import { BackIcon } from '../../../components/CategoryIcon';
+import { useAuth } from '../../../../lib/AuthProvider';
+import { supabase } from '../../../../lib/supabase';
+import { adminDeleteUser, adminResetPassword } from '../../../../lib/adminUsers';
+import { colors, fonts, radii } from '../../../../lib/theme';
+import type { HouseholdMember, HouseholdRole, Profile } from '../../../../lib/database.types';
+
+type MemberRow = HouseholdMember & { profile: Profile | null };
+import PrimaryButton from '../../../../components/PrimaryButton';
+import { BackIcon } from '../../../../components/CategoryIcon';
 
 const ROLE_OPTIONS: { key: HouseholdRole; label: string }[] = [
   { key: 'personnel', label: 'Personnel de maison' },
@@ -20,7 +22,7 @@ export default function UtilisateurDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { household, member: currentMember } = useAuth();
-  const [target, setTarget] = useState<HouseholdMember | null>(null);
+  const [target, setTarget] = useState<MemberRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingRole, setSavingRole] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
@@ -30,17 +32,17 @@ export default function UtilisateurDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const isSelf = target?.user_id === currentMember?.user_id;
+  const isSelf = target?.profile_id === currentMember?.profile_id;
 
   useEffect(() => {
     if (!id) return;
     supabase
       .from('household_members')
-      .select('*')
+      .select('*, profile:profiles(*)')
       .eq('id', id)
       .single()
       .then(({ data }) => {
-        setTarget(data ?? null);
+        setTarget((data as unknown as MemberRow) ?? null);
         setLoading(false);
       });
   }, [id]);
@@ -53,14 +55,14 @@ export default function UtilisateurDetailScreen() {
       .from('household_members')
       .update({ role })
       .eq('id', target.id)
-      .select()
+      .select('*, profile:profiles(*)')
       .single();
     setSavingRole(false);
     if (updateError) {
       setError('Impossible de changer le rôle.');
       return;
     }
-    setTarget(data);
+    setTarget(data as unknown as MemberRow);
   }
 
   async function toggleActive() {
@@ -71,14 +73,14 @@ export default function UtilisateurDetailScreen() {
       .from('household_members')
       .update({ active: !target.active })
       .eq('id', target.id)
-      .select()
+      .select('*, profile:profiles(*)')
       .single();
     setTogglingActive(false);
     if (updateError) {
       setError('Impossible de changer le statut.');
       return;
     }
-    setTarget(data);
+    setTarget(data as unknown as MemberRow);
   }
 
   async function submitReset() {
@@ -91,7 +93,7 @@ export default function UtilisateurDetailScreen() {
     setError(null);
     const result = await adminResetPassword({
       householdId: household.id,
-      memberUserId: target.user_id,
+      memberUserId: target.profile_id,
       newPassword,
     });
     setResetLoading(false);
@@ -106,13 +108,13 @@ export default function UtilisateurDetailScreen() {
 
   function confirmDelete() {
     if (!target || !household?.id) return;
-    Alert.alert('Supprimer cet accès ?', `${target.display_name} ne pourra plus se connecter.`, [
+    Alert.alert('Supprimer cet accès ?', `${target.profile?.first_name ?? 'Cet utilisateur'} ne pourra plus se connecter.`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',
         style: 'destructive',
         onPress: async () => {
-          const result = await adminDeleteUser({ householdId: household.id, memberUserId: target.user_id });
+          const result = await adminDeleteUser({ householdId: household.id, memberUserId: target.profile_id });
           if (!result.ok) {
             setError(result.message);
             return;
@@ -136,7 +138,7 @@ export default function UtilisateurDetailScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
           <BackIcon />
-          <Text style={styles.headerTitle}>{target.display_name}</Text>
+          <Text style={styles.headerTitle}>{target.profile?.first_name ?? 'Utilisateur'}</Text>
         </Pressable>
       </View>
 

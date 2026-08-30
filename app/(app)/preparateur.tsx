@@ -9,13 +9,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../lib/AuthProvider';
-import { useShoppingList } from '../lib/useShoppingList';
-import { supabase } from '../lib/supabase';
-import { colors, fonts, radii } from '../lib/theme';
-import type { Product } from '../lib/database.types';
-import CategoryIcon, { CheckIcon, PlusIcon, SearchIcon } from '../components/CategoryIcon';
-import ProductPhoto from '../components/ProductPhoto';
+import { useAuth } from '../../lib/AuthProvider';
+import { useShoppingList } from '../../lib/useShoppingList';
+import { supabase } from '../../lib/supabase';
+import { colors, fonts, radii } from '../../lib/theme';
+import type { Product } from '../../lib/database.types';
+import CategoryIcon, { CheckIcon, PlusIcon, SearchIcon } from '../../components/CategoryIcon';
+import ProductPhoto from '../../components/ProductPhoto';
 
 export default function PreparateurScreen() {
   const insets = useSafeAreaInsets();

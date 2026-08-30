@@ -5,11 +5,18 @@
 export type ListStatus = 'brouillon' | 'a_acheter' | 'traitee';
 export type HouseholdRole = 'admin' | 'responsable' | 'personnel';
 
+export interface Profile {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  created_at: string;
+}
+
 export interface Household {
   id: string;
   name: string;
   timezone: string;
-  invite_code: string;
+  code: string;
   created_by: string | null;
   created_at: string;
 }
@@ -17,8 +24,7 @@ export interface Household {
 export interface HouseholdMember {
   id: string;
   household_id: string;
-  user_id: string;
-  display_name: string;
+  profile_id: string;
   username: string | null;
   role: HouseholdRole;
   active: boolean;
@@ -74,6 +80,7 @@ export interface ListItem {
 export interface Database {
   public: {
     Tables: {
+      profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> };
       households: { Row: Household; Insert: Partial<Household>; Update: Partial<Household> };
       household_members: { Row: HouseholdMember; Insert: Partial<HouseholdMember>; Update: Partial<HouseholdMember> };
       categories: { Row: Category; Insert: Partial<Category>; Update: Partial<Category> };
@@ -83,7 +90,10 @@ export interface Database {
     };
     Functions: {
       get_or_create_today_list: { Args: { p_household_id: string }; Returns: ShoppingList };
-      create_household: { Args: { p_name: string; p_display_name: string }; Returns: Household };
+      ensure_provisioned: {
+        Args: Record<string, never>;
+        Returns: { household_id: string; member_role: HouseholdRole }[];
+      };
       resolve_login_email: {
         Args: { p_invite_code: string; p_username: string };
         Returns: string | null;

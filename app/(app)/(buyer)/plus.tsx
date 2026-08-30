@@ -1,13 +1,13 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useAuth } from '../../lib/AuthProvider';
-import { colors, fonts, radii } from '../../lib/theme';
-import { ChevronRightIcon } from '../../components/CategoryIcon';
+import { useAuth } from '../../../lib/AuthProvider';
+import { colors, fonts, radii } from '../../../lib/theme';
+import { ChevronRightIcon } from '../../../components/CategoryIcon';
 
 export default function PlusScreen() {
   const insets = useSafeAreaInsets();
-  const { household, member, isAdmin, signOut } = useAuth();
+  const { household, member, profile, isAdmin, signOut } = useAuth();
 
   const roleLabel = member?.role === 'admin' ? 'Administrateur' : member?.role === 'responsable' ? 'Responsable du foyer' : 'Personnel de maison';
 
@@ -24,11 +24,11 @@ export default function PlusScreen() {
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Code du foyer</Text>
-          <Text style={styles.value}>{household?.invite_code}</Text>
+          <Text style={styles.value}>{household?.code}</Text>
         </View>
         <View style={[styles.row, styles.rowLast]}>
           <Text style={styles.label}>Vous</Text>
-          <Text style={styles.value}>{member?.display_name} · {roleLabel}</Text>
+          <Text style={styles.value}>{profile?.first_name} · {roleLabel}</Text>
         </View>
       </View>
 

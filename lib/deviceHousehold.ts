@@ -1,12 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Le code du foyer utilisé lors de la dernière connexion réussie sur CET
-// appareil, pour éviter de le redemander à chaque ouverture (spec §6/§7).
-// Ce n'est qu'un confort d'UI, pas un mécanisme de sécurité : la vraie
-// protection reste la session Supabase + les policies RLS.
-const KEY = 'listecourse.remembered_invite_code';
+// appareil, pour éviter de le redemander à chaque ouverture. Ce n'est qu'un
+// confort d'UI (pré-remplissage), jamais un mécanisme de décision
+// d'authentification : la vraie source de vérité reste la session Supabase
+// + les données serveur (profiles / household_members), lues par
+// AuthProvider à chaque démarrage.
+const KEY = 'listecourse.remembered_household_code';
 
-export async function getRememberedInviteCode(): Promise<string | null> {
+export async function getRememberedHouseholdCode(): Promise<string | null> {
   try {
     return await AsyncStorage.getItem(KEY);
   } catch {
@@ -14,7 +16,7 @@ export async function getRememberedInviteCode(): Promise<string | null> {
   }
 }
 
-export async function setRememberedInviteCode(code: string): Promise<void> {
+export async function setRememberedHouseholdCode(code: string): Promise<void> {
   try {
     await AsyncStorage.setItem(KEY, code.toUpperCase());
   } catch {
@@ -22,7 +24,7 @@ export async function setRememberedInviteCode(code: string): Promise<void> {
   }
 }
 
-export async function clearRememberedInviteCode(): Promise<void> {
+export async function clearRememberedHouseholdCode(): Promise<void> {
   try {
     await AsyncStorage.removeItem(KEY);
   } catch {

@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     if (!household_id || !member_user_id || !new_password) {
       return json({ error: 'missing_fields' }, 400);
     }
-    if (String(new_password).length < 4) {
+    if (String(new_password).length < 6) {
       return json({ error: 'password_too_short' }, 400);
     }
 
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const { data: member } = await admin
       .from('household_members')
       .select('id')
-      .eq('user_id', member_user_id)
+      .eq('profile_id', member_user_id)
       .eq('household_id', household_id)
       .maybeSingle();
 

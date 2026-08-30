@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/AuthProvider';
-import { useShoppingList } from '../../lib/useShoppingList';
-import { useHouseholdMembers } from '../../lib/useHouseholdMembers';
-import { supabase } from '../../lib/supabase';
-import { colors, fonts, radii } from '../../lib/theme';
-import type { Category, ListItem, Product } from '../../lib/database.types';
-import CategoryIcon, { CheckIcon } from '../../components/CategoryIcon';
+import { useAuth } from '../../../lib/AuthProvider';
+import { useShoppingList } from '../../../lib/useShoppingList';
+import { useHouseholdMembers } from '../../../lib/useHouseholdMembers';
+import { supabase } from '../../../lib/supabase';
+import { colors, fonts, radii } from '../../../lib/theme';
+import type { Category, ListItem, Product } from '../../../lib/database.types';
+import CategoryIcon, { CheckIcon } from '../../../components/CategoryIcon';
 
 interface Row {
   item: ListItem;
@@ -18,7 +18,7 @@ export default function CoursesScreen() {
   const insets = useSafeAreaInsets();
   const { household, session } = useAuth();
   const { list, categories, products, items, loading, error, setItems, setList } = useShoppingList(household?.id);
-  const membersByUserId = useHouseholdMembers(household?.id);
+  const membersByProfileId = useHouseholdMembers(household?.id);
   const [hidePurchased, setHidePurchased] = useState(false);
   const [closing, setClosing] = useState(false);
 
@@ -147,7 +147,7 @@ export default function CoursesScreen() {
                 <Text style={styles.sectionTitle}>{cat.name}</Text>
               </View>
               {rows.map(({ item, label }) => (
-                <ItemRow key={item.id} item={item} label={label} onToggle={() => toggleItem(item)} membersByUserId={membersByUserId} />
+                <ItemRow key={item.id} item={item} label={label} onToggle={() => toggleItem(item)} membersByProfileId={membersByProfileId} />
               ))}
             </View>
           );
@@ -163,7 +163,7 @@ export default function CoursesScreen() {
                 <Text style={styles.sectionTitle}>Autres</Text>
               </View>
               {rows.map(({ item, label }) => (
-                <ItemRow key={item.id} item={item} label={label} onToggle={() => toggleItem(item)} membersByUserId={membersByUserId} />
+                <ItemRow key={item.id} item={item} label={label} onToggle={() => toggleItem(item)} membersByProfileId={membersByProfileId} />
               ))}
             </View>
           );
@@ -191,14 +191,14 @@ function ItemRow({
   item,
   label,
   onToggle,
-  membersByUserId,
+  membersByProfileId,
 }: {
   item: ListItem;
   label: string;
   onToggle: () => void;
-  membersByUserId: ReturnType<typeof useHouseholdMembers>;
+  membersByProfileId: ReturnType<typeof useHouseholdMembers>;
 }) {
-  const buyerName = item.purchased_by ? membersByUserId[item.purchased_by]?.display_name : undefined;
+  const buyerName = item.purchased_by ? membersByProfileId[item.purchased_by]?.profile?.first_name : undefined;
   return (
     <Pressable style={[styles.itemRow, item.purchased && styles.itemRowPurchased]} onPress={onToggle}>
       <View style={[styles.checkbox, item.purchased && styles.checkboxChecked]}>

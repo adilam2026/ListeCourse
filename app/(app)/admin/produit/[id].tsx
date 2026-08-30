@@ -12,14 +12,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../../lib/AuthProvider';
-import { supabase } from '../../../lib/supabase';
-import { uploadProductPhoto } from '../../../lib/uploadProductPhoto';
-import { colors, fonts, radii } from '../../../lib/theme';
-import type { Category, Product } from '../../../lib/database.types';
-import CategoryIcon, { BackIcon } from '../../../components/CategoryIcon';
-import ProductPhoto from '../../../components/ProductPhoto';
-import PrimaryButton from '../../../components/PrimaryButton';
+import { useAuth } from '../../../../lib/AuthProvider';
+import { supabase } from '../../../../lib/supabase';
+import { uploadProductPhoto } from '../../../../lib/uploadProductPhoto';
+import { colors, fonts, radii } from '../../../../lib/theme';
+import type { Category, Product } from '../../../../lib/database.types';
+import CategoryIcon, { BackIcon } from '../../../../components/CategoryIcon';
+import ProductPhoto from '../../../../components/ProductPhoto';
+import PrimaryButton from '../../../../components/PrimaryButton';
 
 export default function ProductFormScreen() {
   const insets = useSafeAreaInsets();

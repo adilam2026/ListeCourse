@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/AuthProvider';
-import { supabase } from '../../lib/supabase';
-import { colors, fonts, radii } from '../../lib/theme';
-import type { ShoppingList } from '../../lib/database.types';
-import { CheckIcon } from '../../components/CategoryIcon';
+import { useAuth } from '../../../lib/AuthProvider';
+import { supabase } from '../../../lib/supabase';
+import { colors, fonts, radii } from '../../../lib/theme';
+import type { ShoppingList } from '../../../lib/database.types';
+import { CheckIcon } from '../../../components/CategoryIcon';
 
 interface Row {
   list: ShoppingList;

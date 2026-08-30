@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { colors, fonts } from '../../lib/theme';
-import { CartTabIcon, HistoryTabIcon, MoreTabIcon } from '../../components/TabIcons';
+import { colors, fonts } from '../../../lib/theme';
+import { CartTabIcon, HistoryTabIcon, MoreTabIcon } from '../../../components/TabIcons';
 
 export default function BuyerLayout() {
   return (

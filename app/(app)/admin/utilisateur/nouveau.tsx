@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../../lib/AuthProvider';
-import { adminCreateUser } from '../../../lib/adminUsers';
-import { colors, fonts, radii } from '../../../lib/theme';
-import type { HouseholdRole } from '../../../lib/database.types';
-import FormField from '../../../components/FormField';
-import PrimaryButton from '../../../components/PrimaryButton';
-import { BackIcon } from '../../../components/CategoryIcon';
+import { useAuth } from '../../../../lib/AuthProvider';
+import { adminCreateUser } from '../../../../lib/adminUsers';
+import { colors, fonts, radii } from '../../../../lib/theme';
+import type { HouseholdRole } from '../../../../lib/database.types';
+import FormField from '../../../../components/FormField';
+import PrimaryButton from '../../../../components/PrimaryButton';
+import { BackIcon } from '../../../../components/CategoryIcon';
 
 const ROLE_OPTIONS: { key: HouseholdRole; label: string; hint: string }[] = [
   { key: 'personnel', label: 'Personnel de maison', hint: 'Prépare la liste du jour, rien de plus.' },
