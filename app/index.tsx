@@ -23,6 +23,10 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
+  if (status === 'otp_pending') {
+    return <Redirect href="/verifier-otp" />;
+  }
+
   if (status === 'authenticated_no_household') {
     // Compte créé, email confirmé, aucun foyer : état normal, pas une
     // erreur. On ne crée jamais de foyer automatiquement — uniquement sur

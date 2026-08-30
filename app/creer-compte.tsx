@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthProvider';
 import { colors, fonts } from '../lib/theme';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
@@ -13,6 +14,7 @@ const MIN_PASSWORD_LENGTH = 6;
 // création d'un foyer est une étape volontaire et séparée, plus tard, une
 // fois connecté (voir app/creer-foyer.tsx).
 export default function CreerCompteScreen() {
+  const { beginEmailVerification } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -63,7 +65,8 @@ export default function CreerCompteScreen() {
       return;
     }
 
-    router.replace({ pathname: '/confirmez-email', params: { email: email.trim() } });
+    beginEmailVerification(email.trim());
+    router.replace('/verifier-otp');
   }
 
   return (

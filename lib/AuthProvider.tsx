@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Household, HouseholdMember, Profile } from './database.types';
@@ -7,18 +7,21 @@ import type { Household, HouseholdMember, Profile } from './database.types';
 // écran/garde ne lit QUE `status`, jamais de déduction locale.
 //
 //   bootstrapping             → lecture de la session au démarrage
-//   signed_out                → aucune session (inclut : inscrit mais pas
-//                                encore confirmé — l'écran "Confirmez votre
-//                                email" est un flux de navigation local, pas
-//                                un état global, puisqu'aucune session
-//                                n'existe tant que l'email n'est pas confirmé)
+//   signed_out                → aucune session
+//   otp_pending                → inscription en cours, code envoyé, pas encore de session
 //   authenticated_no_household → session valide, email confirmé, AUCUN foyer
 //                                (état NORMAL, pas une erreur : l'utilisateur
 //                                vient de s'inscrire et n'a pas encore créé
 //                                ou rejoint de foyer)
 //   ready                      → session + foyer + rôle
 //   error                      → anomalie (accès désactivé, échec réseau...)
-export type AuthStatus = 'bootstrapping' | 'signed_out' | 'authenticated_no_household' | 'ready' | 'error';
+export type AuthStatus =
+  | 'bootstrapping'
+  | 'signed_out'
+  | 'otp_pending'
+  | 'authenticated_no_household'
+  | 'ready'
+  | 'error';
 
 // Jamais de mot de passe, de token ou de refresh token dans ces logs — ce
 // sont des repères d'état, pas un journal de debug complet.
@@ -36,19 +39,31 @@ interface AuthContextValue {
   isResponsable: boolean;
   isPersonnel: boolean;
   errorMessage: string | null;
+  pendingOtpEmail: string | null;
+  beginEmailVerification: (email: string) => void;
+  cancelEmailVerification: () => void;
+  verifyOtp: (code: string) => Promise<{ ok: boolean; message?: string }>;
+  resendOtp: () => Promise<{ ok: boolean; message?: string }>;
   retry: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Statut dérivé uniquement de la session Supabase (jamais de "otp_pending"
+// ici : avant validation du code, aucune session n'existe encore).
+type SessionStatus = 'bootstrapping' | 'signed_out' | 'authenticated_no_household' | 'ready' | 'error';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>('bootstrapping');
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('bootstrapping');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [member, setMember] = useState<HouseholdMember | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingOtpEmail, setPendingOtpEmail] = useState<string | null>(null);
+  const pendingOtpEmailRef = useRef<string | null>(null);
+  pendingOtpEmailRef.current = pendingOtpEmail;
 
   const evaluate = useCallback(async (currentSession: Session | null) => {
     setSession(currentSession);
@@ -58,21 +73,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHousehold(null);
       setMember(null);
       setErrorMessage(null);
-      setStatus('signed_out');
+      setSessionStatus('signed_out');
       return;
     }
 
-    // Défense en profondeur : Supabase refuse normalement la connexion d'un
-    // compte principal non confirmé (Confirm email = ON), donc une session
-    // sans email confirmé ne devrait jamais exister. Si ce cas survient
-    // quand même, on ne laisse pas l'app dans un état ambigu.
+    // Défense en profondeur : par construction (signUp + verifyOtp), une
+    // session n'existe jamais sans email confirmé. Si ce cas survient quand
+    // même (anomalie), on ne laisse pas l'app dans un état ambigu.
     if (!currentSession.user.email_confirmed_at) {
       authLog('anomaly_unconfirmed_session', { user_id: currentSession.user.id });
       setProfile(null);
       setHousehold(null);
       setMember(null);
       setErrorMessage("Votre adresse email n'est pas confirmée. Reconnectez-vous.");
-      setStatus('error');
+      setSessionStatus('error');
       return;
     }
 
@@ -99,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHousehold(null);
       setMember(null);
       setErrorMessage(null);
-      setStatus('authenticated_no_household');
+      setSessionStatus('authenticated_no_household');
       return;
     }
 
@@ -114,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHousehold(null);
       setMember(null);
       setErrorMessage('Votre accès a été désactivé par un administrateur.');
-      setStatus('error');
+      setSessionStatus('error');
       return;
     }
 
@@ -128,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMember(memberRow);
     setHousehold(householdRow ?? null);
     setErrorMessage(null);
-    setStatus('ready');
+    setSessionStatus('ready');
   }, []);
 
   const retry = useCallback(async () => {
@@ -142,11 +156,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      // Une session réelle apparaît (ex. verifyOtp() réussi) : le flux
+      // d'inscription en cours est terminé, quel que soit son état.
+      if (newSession) setPendingOtpEmail(null);
       evaluate(newSession);
     });
 
     return () => sub.subscription.unsubscribe();
   }, [evaluate]);
+
+  const status: AuthStatus = pendingOtpEmail && sessionStatus === 'signed_out' ? 'otp_pending' : sessionStatus;
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -159,6 +178,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isResponsable: member?.role === 'responsable',
       isPersonnel: member?.role === 'personnel',
       errorMessage,
+      pendingOtpEmail,
+      beginEmailVerification: (email: string) => {
+        authLog('signup_otp_sent');
+        setPendingOtpEmail(email);
+      },
+      cancelEmailVerification: () => setPendingOtpEmail(null),
+      verifyOtp: async (code: string) => {
+        const email = pendingOtpEmailRef.current;
+        if (!email) return { ok: false, message: "Session d'inscription expirée. Recommencez." };
+        const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
+        if (error) {
+          authLog('otp_verification_failed');
+          return { ok: false, message: 'Code incorrect ou expiré.' };
+        }
+        authLog('otp_verification_succeeded');
+        // onAuthStateChange va recevoir la nouvelle session et ré-évaluer.
+        return { ok: true };
+      },
+      resendOtp: async () => {
+        const email = pendingOtpEmailRef.current;
+        if (!email) return { ok: false, message: 'Aucune vérification en cours.' };
+        const { error } = await supabase.auth.resend({ type: 'signup', email });
+        if (error) return { ok: false, message: error.message };
+        return { ok: true };
+      },
       retry,
       signOut: async () => {
         authLog('signout', { user_id: session?.user?.id });
@@ -168,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // que soit l'écran actuellement affiché.
       },
     }),
-    [status, session, profile, household, member, errorMessage, retry]
+    [status, session, profile, household, member, errorMessage, pendingOtpEmail, retry]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
