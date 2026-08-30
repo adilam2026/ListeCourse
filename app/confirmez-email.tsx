@@ -36,8 +36,9 @@ export default function ConfirmezEmailScreen() {
       setError("Email pas encore confirmé, ou mot de passe incorrect. Vérifiez votre boîte mail.");
       return;
     }
-    // AuthProvider prend le relais : session confirmée → provisioning
-    // automatique du foyer si besoin, puis redirection par le garde central.
+    // AuthProvider prend le relais : la nouvelle session déclenche
+    // l'évaluation (authenticated_no_household ou ready), gérée par le
+    // garde central — rien à décider ici.
     router.replace('/');
   }
 

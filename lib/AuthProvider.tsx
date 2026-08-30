@@ -3,19 +3,25 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Household, HouseholdMember, Profile } from './database.types';
 
-// Une seule source de vérité pour "où en est cet utilisateur", au lieu de
-// déductions éparpillées (session ? household ? member ?) dans chaque
-// écran. Chaque écran/garde ne lit QUE `status`.
-export type AuthStatus =
-  | 'bootstrapping'
-  | 'signed_out'
-  | 'needs_email_confirmation'
-  | 'needs_provisioning'
-  | 'error'
-  | 'ready';
+// Une seule source de vérité pour "où en est cet utilisateur" — chaque
+// écran/garde ne lit QUE `status`, jamais de déduction locale.
+//
+//   bootstrapping             → lecture de la session au démarrage
+//   signed_out                → aucune session (inclut : inscrit mais pas
+//                                encore confirmé — l'écran "Confirmez votre
+//                                email" est un flux de navigation local, pas
+//                                un état global, puisqu'aucune session
+//                                n'existe tant que l'email n'est pas confirmé)
+//   authenticated_no_household → session valide, email confirmé, AUCUN foyer
+//                                (état NORMAL, pas une erreur : l'utilisateur
+//                                vient de s'inscrire et n'a pas encore créé
+//                                ou rejoint de foyer)
+//   ready                      → session + foyer + rôle
+//   error                      → anomalie (accès désactivé, échec réseau...)
+export type AuthStatus = 'bootstrapping' | 'signed_out' | 'authenticated_no_household' | 'ready' | 'error';
 
 // Jamais de mot de passe, de token ou de refresh token dans ces logs — ce
-// sont des repères d'état (spec §19), pas un journal de debug complet.
+// sont des repères d'état, pas un journal de debug complet.
 function authLog(event: string, detail?: Record<string, unknown>) {
   console.log(`[auth] ${event}`, detail ?? '');
 }
@@ -31,7 +37,6 @@ interface AuthContextValue {
   isPersonnel: boolean;
   errorMessage: string | null;
   retry: () => Promise<void>;
-  resendConfirmationEmail: () => Promise<{ ok: boolean; message?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -57,20 +62,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Vérification explicite — ne jamais se fier uniquement au fait qu'une
-    // session existe. Un compte secondaire créé par un admin est toujours
-    // confirmé dès sa création (email_confirm: true côté Edge Function) ;
-    // seul le compte fondateur (email réel) peut être ici en attente.
+    // Défense en profondeur : Supabase refuse normalement la connexion d'un
+    // compte principal non confirmé (Confirm email = ON), donc une session
+    // sans email confirmé ne devrait jamais exister. Si ce cas survient
+    // quand même, on ne laisse pas l'app dans un état ambigu.
     if (!currentSession.user.email_confirmed_at) {
-      authLog('needs_email_confirmation', { user_id: currentSession.user.id });
+      authLog('anomaly_unconfirmed_session', { user_id: currentSession.user.id });
       setProfile(null);
       setHousehold(null);
       setMember(null);
-      setErrorMessage(null);
-      setStatus('needs_email_confirmation');
+      setErrorMessage("Votre adresse email n'est pas confirmée. Reconnectez-vous.");
+      setStatus('error');
       return;
     }
 
+    // Le profil est garanti par un trigger DB dès l'inscription (voir
+    // migration decouple_signup_household) : pas de création ici.
     const { data: memberRow } = await supabase
       .from('household_members')
       .select('*')
@@ -78,62 +85,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .limit(1)
       .maybeSingle();
 
-    if (memberRow) {
-      if (!memberRow.active) {
-        // Défense en profondeur (TEST 11) : un compte désactivé ne doit
-        // jamais rester "visuellement connecté", même si son JWT est
-        // techniquement encore valide — RLS bloquera les données de toute
-        // façon, mais on ne laisse pas l'app dans un état ambigu.
-        authLog('membership_inactive', { user_id: currentSession.user.id, household_id: memberRow.household_id });
-        await supabase.auth.signOut();
-        setProfile(null);
-        setHousehold(null);
-        setMember(null);
-        setErrorMessage('Votre accès a été désactivé par un administrateur.');
-        setStatus('error');
-        return;
-      }
-
-      const [{ data: profileRow }, { data: householdRow }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle(),
-        supabase.from('households').select('*').eq('id', memberRow.household_id).maybeSingle(),
-      ]);
-
-      authLog('ready', { user_id: currentSession.user.id, household_id: memberRow.household_id, role: memberRow.role });
+    if (!memberRow) {
+      // Compte authentifié, email confirmé, aucun foyer : état NORMAL.
+      // On ne crée rien automatiquement — seul un clic explicite sur
+      // "Créer mon foyer" appelle create_household().
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentSession.user.id)
+        .maybeSingle();
+      authLog('authenticated_no_household', { user_id: currentSession.user.id });
       setProfile(profileRow ?? null);
-      setMember(memberRow);
-      setHousehold(householdRow ?? null);
+      setHousehold(null);
+      setMember(null);
       setErrorMessage(null);
-      setStatus('ready');
+      setStatus('authenticated_no_household');
       return;
     }
 
-    // Pas d'adhésion : provisioning serveur idempotent (fondateur qui vient
-    // de confirmer son email pour la première fois, ou état à réparer).
-    const { data: provisioned, error: provisionError } = await supabase.rpc('ensure_provisioned');
-
-    if (provisionError) {
-      authLog('provisioning_failed', { user_id: currentSession.user.id, reason: provisionError.message });
+    if (!memberRow.active) {
+      // Défense en profondeur (TEST désactivation) : un compte désactivé ne
+      // doit jamais rester "visuellement connecté" — RLS bloquera les
+      // données de toute façon, mais on ne laisse pas l'app dans un état
+      // ambigu.
+      authLog('membership_inactive', { user_id: currentSession.user.id, household_id: memberRow.household_id });
+      await supabase.auth.signOut();
       setProfile(null);
       setHousehold(null);
       setMember(null);
-      setErrorMessage(
-        provisionError.message === 'no_household_pending'
-          ? "Votre compte existe mais votre espace familial n'a pas pu être initialisé."
-          : `Erreur d'initialisation du foyer : ${provisionError.message}`
-      );
-      setStatus(provisionError.message === 'no_household_pending' ? 'needs_provisioning' : 'error');
+      setErrorMessage('Votre accès a été désactivé par un administrateur.');
+      setStatus('error');
       return;
     }
 
-    if (provisioned && provisioned.length > 0) {
-      // Provisioning réussi : recharge l'état complet (profil, foyer, rôle).
-      authLog('provisioning_succeeded', { user_id: currentSession.user.id, household_id: provisioned[0].household_id });
-      return evaluate(currentSession);
-    }
+    const [{ data: profileRow }, { data: householdRow }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle(),
+      supabase.from('households').select('*').eq('id', memberRow.household_id).maybeSingle(),
+    ]);
 
-    setErrorMessage("Votre compte existe mais votre espace familial n'a pas pu être initialisé.");
-    setStatus('needs_provisioning');
+    authLog('ready', { user_id: currentSession.user.id, household_id: memberRow.household_id, role: memberRow.role });
+    setProfile(profileRow ?? null);
+    setMember(memberRow);
+    setHousehold(householdRow ?? null);
+    setErrorMessage(null);
+    setStatus('ready');
   }, []);
 
   const retry = useCallback(async () => {
@@ -165,19 +160,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPersonnel: member?.role === 'personnel',
       errorMessage,
       retry,
-      resendConfirmationEmail: async () => {
-        if (!session?.user?.email) return { ok: false, message: 'Aucun email associé à ce compte.' };
-        const { error } = await supabase.auth.resend({ type: 'signup', email: session.user.email });
-        if (error) return { ok: false, message: error.message };
-        return { ok: true };
-      },
       signOut: async () => {
         authLog('signout', { user_id: session?.user?.id });
         await supabase.auth.signOut();
         // onAuthStateChange déclenchera evaluate(null) → status 'signed_out'.
         // Le garde de route ((app)/_layout.tsx) réagit à ce changement quel
-        // que soit l'écran actuellement affiché — plus de dépendance à un
-        // appel manuel de navigation depuis chaque bouton "Déconnexion".
+        // que soit l'écran actuellement affiché.
       },
     }),
     [status, session, profile, household, member, errorMessage, retry]

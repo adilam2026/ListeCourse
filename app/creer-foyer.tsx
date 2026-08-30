@@ -1,75 +1,66 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors, fonts } from '../lib/theme';
+import { useAuth } from '../lib/AuthProvider';
+import { colors, fonts, radii } from '../lib/theme';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
 import { BackIcon } from '../components/CategoryIcon';
 
-const MIN_PASSWORD_LENGTH = 6;
-
-// Le foyer n'est plus créé depuis le client (front → insert profile → insert
-// household → insert membership) : signUp() ne fait que transporter les
-// informations nécessaires en métadonnées. La création réelle du profil, du
-// foyer et de l'adhésion admin est une seule opération serveur idempotente
-// (ensure_provisioned(), appelée automatiquement par AuthProvider dès
-// qu'une session valide et confirmée existe).
+// Étape volontaire et séparée de l'inscription : on est déjà connecté ici
+// (voir app/index.tsx, état "authenticated_no_household"). Une seule
+// information est demandée — le nom du foyer — puis create_household() fait
+// tout le travail serveur (foyer + code + adhésion admin) en une opération
+// atomique.
 export default function CreerFoyerScreen() {
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [householdName, setHouseholdName] = useState('');
+  const { retry } = useAuth();
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdCode, setCreatedCode] = useState<string | null>(null);
 
   async function submit() {
     setError(null);
-
-    if (!displayName.trim() || !email.trim() || !householdName.trim()) {
-      setError('Merci de remplir tous les champs.');
+    if (!name.trim()) {
+      setError('Merci de renseigner le nom de votre foyer.');
       return;
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Les deux mots de passe ne correspondent pas.');
-      return;
-    }
-
     setLoading(true);
-    console.log('[auth] signup_initiated');
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          first_name: displayName.trim(),
-          household_name: householdName.trim(),
-        },
-      },
-    });
+    const { data, error: createError } = await supabase.rpc('create_household', { p_name: name.trim() });
     setLoading(false);
-
-    if (signUpError) {
-      setError(signUpError.message);
+    if (createError || !data?.length) {
+      setError(
+        createError?.message === 'already_has_household'
+          ? 'Vous appartenez déjà à un foyer.'
+          : "Impossible de créer le foyer pour l'instant."
+      );
       return;
     }
+    setCreatedCode(data[0].household_code);
+  }
 
-    if (data.session) {
-      // Cas rare (confirmation email désactivée côté projet) : session
-      // immédiate. AuthProvider détecte la session au prochain rendu et
-      // appelle lui-même ensure_provisioned() — aucune action ici.
-      router.replace('/');
-      return;
-    }
+  async function continueToApp() {
+    // create_household() ne change pas la session : on force AuthProvider à
+    // relire l'adhésion qui vient d'être créée avant de continuer.
+    await retry();
+    router.replace('/');
+  }
 
-    // Cas normal : confirmation email requise avant toute connexion. Le
-    // foyer sera provisionné au premier login réussi après confirmation.
-    router.replace({ pathname: '/confirmez-email', params: { email: email.trim() } });
+  if (createdCode) {
+    return (
+      <View style={styles.confirmContainer}>
+        <Text style={styles.confirmTitle}>Foyer {name.trim()} créé ✓</Text>
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>Code foyer</Text>
+          <Text style={styles.codeValue}>{createdCode}</Text>
+        </View>
+        <Text style={styles.confirmHint}>
+          Ce code servira à connecter les utilisateurs secondaires de votre foyer.
+        </Text>
+        <PrimaryButton label="Continuer" onPress={continueToApp} />
+      </View>
+    );
   }
 
   return (
@@ -78,42 +69,14 @@ export default function CreerFoyerScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10} style={{ alignSelf: 'flex-start' }}>
           <BackIcon size={20} />
         </Pressable>
-        <Text style={styles.title}>Créer un nouveau foyer</Text>
+        <Text style={styles.title}>Créer mon foyer</Text>
         <Text style={styles.subtitle}>Vous devenez administrateur de ce foyer.</Text>
 
-        <FormField label="Votre prénom" value={displayName} onChangeText={setDisplayName} placeholder="Adil" />
-        <FormField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="vous@exemple.com"
-        />
-        <FormField
-          label="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder={`•••••• (${MIN_PASSWORD_LENGTH} caractères min.)`}
-        />
-        <FormField
-          label="Confirmer le mot de passe"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          placeholder="••••••"
-        />
-        <FormField
-          label="Nom du foyer"
-          value={householdName}
-          onChangeText={setHouseholdName}
-          placeholder="Casa"
-        />
+        <FormField label="Nom du foyer" value={name} onChangeText={setName} placeholder="Casa" />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <PrimaryButton label="Créer mon foyer" onPress={submit} loading={loading} />
+        <PrimaryButton label="Créer" onPress={submit} loading={loading} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -124,4 +87,24 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.display, fontSize: 24, color: colors.text, marginTop: 18 },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.textSoft, marginTop: 4, marginBottom: 24 },
   error: { fontFamily: fonts.bodyBold, fontSize: 13, color: '#C23B3B', marginBottom: 12 },
+  confirmContainer: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 18 },
+  confirmTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.text, textAlign: 'center' },
+  codeCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    paddingVertical: 18,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+  },
+  codeLabel: {
+    fontFamily: fonts.bodyExtraBold,
+    fontSize: 11.5,
+    color: colors.textSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  codeValue: { fontFamily: fonts.display, fontSize: 24, color: colors.accent, marginTop: 4, letterSpacing: 1 },
+  confirmHint: { fontFamily: fonts.body, fontSize: 13.5, color: colors.textSoft, textAlign: 'center', lineHeight: 20 },
 });

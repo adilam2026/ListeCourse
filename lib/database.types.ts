@@ -90,9 +90,9 @@ export interface Database {
     };
     Functions: {
       get_or_create_today_list: { Args: { p_household_id: string }; Returns: ShoppingList };
-      ensure_provisioned: {
-        Args: Record<string, never>;
-        Returns: { household_id: string; member_role: HouseholdRole }[];
+      create_household: {
+        Args: { p_name: string };
+        Returns: { household_id: string; household_code: string }[];
       };
       resolve_login_email: {
         Args: { p_invite_code: string; p_username: string };
