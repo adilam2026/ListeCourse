@@ -64,7 +64,7 @@ export default function UtilisateursScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowName}>
-                    {m.profile?.first_name ?? '—'}
+                    {m.profile?.name ?? '—'}
                     {m.profile_id === currentMember?.profile_id ? ' (vous)' : ''}
                   </Text>
                   <Text style={styles.rowMeta}>

@@ -198,7 +198,7 @@ function ItemRow({
   onToggle: () => void;
   membersByProfileId: ReturnType<typeof useHouseholdMembers>;
 }) {
-  const buyerName = item.purchased_by ? membersByProfileId[item.purchased_by]?.profile?.first_name : undefined;
+  const buyerName = item.purchased_by ? membersByProfileId[item.purchased_by]?.profile?.name : undefined;
   return (
     <Pressable style={[styles.itemRow, item.purchased && styles.itemRowPurchased]} onPress={onToggle}>
       <View style={[styles.checkbox, item.purchased && styles.checkboxChecked]}>

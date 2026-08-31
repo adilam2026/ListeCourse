@@ -28,7 +28,7 @@ export default function PlusScreen() {
         </View>
         <View style={[styles.row, styles.rowLast]}>
           <Text style={styles.label}>Vous</Text>
-          <Text style={styles.value}>{profile?.first_name} · {roleLabel}</Text>
+          <Text style={styles.value}>{profile?.name} · {roleLabel}</Text>
         </View>
       </View>
 

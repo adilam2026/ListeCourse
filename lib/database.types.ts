@@ -7,9 +7,10 @@ export type HouseholdRole = 'admin' | 'responsable' | 'personnel';
 
 export interface Profile {
   id: string;
-  first_name: string;
-  last_name: string | null;
+  name: string;
+  password_set: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Household {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { router } from 'expo-router';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { colors, fonts } from '../lib/theme';
 import FormField from '../components/FormField';
@@ -10,7 +10,8 @@ import PrimaryButton from '../components/PrimaryButton';
 // l'inscription). Les comptes secondaires (créés par un admin, sans email)
 // passent par "J'ai un accès fourni par mon foyer" — jamais par ici.
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(emailParam ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,21 +35,6 @@ export default function LoginScreen() {
     }
     console.log('[auth] login_succeeded');
     router.replace('/');
-  }
-
-  async function forgotPassword() {
-    if (!email.trim()) {
-      setError('Renseignez votre email ci-dessus, puis appuyez à nouveau.');
-      return;
-    }
-    setLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
-    setLoading(false);
-    if (resetError) {
-      setError(resetError.message);
-      return;
-    }
-    Alert.alert('Email envoyé', 'Consultez votre boîte mail pour réinitialiser votre mot de passe.');
   }
 
   return (
@@ -80,7 +66,7 @@ export default function LoginScreen() {
 
         <PrimaryButton label="Se connecter" onPress={submit} loading={loading} />
 
-        <Pressable onPress={forgotPassword} hitSlop={8} style={{ marginTop: 16 }}>
+        <Pressable onPress={() => router.push({ pathname: '/mot-de-passe-oublie', params: { email } })} hitSlop={8} style={{ marginTop: 16 }}>
           <Text style={styles.forgot}>Mot de passe oublié ?</Text>
         </Pressable>
 

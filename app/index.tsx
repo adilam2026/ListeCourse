@@ -23,23 +23,27 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
-  if (status === 'otp_pending') {
+  if (status === 'signup_otp_pending') {
     return <Redirect href="/verifier-otp" />;
   }
 
+  if (status === 'signup_password_pending') {
+    return <Redirect href="/creer-mot-de-passe" />;
+  }
+
   if (status === 'authenticated_no_household') {
-    // Compte créé, email confirmé, aucun foyer : état normal, pas une
+    // Compte créé, mot de passe défini, aucun foyer : état normal, pas une
     // erreur. On ne crée jamais de foyer automatiquement — uniquement sur
     // un clic explicite de l'utilisateur.
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 18 }}>
         <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, textAlign: 'center' }}>
-          Bonjour {profile?.first_name ?? ''} 👋
+          Bonjour {profile?.name ?? ''} 👋
         </Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 14.5, color: colors.textSoft, textAlign: 'center', lineHeight: 21 }}>
-          Votre compte est prêt. Pour commencer à utiliser ListeCourse avec votre famille, créez votre foyer.
+          Votre compte est prêt. Vous n'avez encore aucun foyer.
         </Text>
-        <PrimaryButton label="Créer mon foyer" onPress={() => router.push('/creer-foyer')} />
+        <PrimaryButton label="Créer un foyer" onPress={() => router.push('/creer-foyer')} />
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.textSoft, textAlign: 'center', lineHeight: 18 }}>
           Vous pourrez ensuite ajouter les responsables du foyer et le personnel de maison.
         </Text>

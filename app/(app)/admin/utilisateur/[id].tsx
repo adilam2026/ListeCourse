@@ -108,7 +108,7 @@ export default function UtilisateurDetailScreen() {
 
   function confirmDelete() {
     if (!target || !household?.id) return;
-    Alert.alert('Supprimer cet accès ?', `${target.profile?.first_name ?? 'Cet utilisateur'} ne pourra plus se connecter.`, [
+    Alert.alert('Supprimer cet accès ?', `${target.profile?.name ?? 'Cet utilisateur'} ne pourra plus se connecter.`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',
@@ -138,7 +138,7 @@ export default function UtilisateurDetailScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
           <BackIcon />
-          <Text style={styles.headerTitle}>{target.profile?.first_name ?? 'Utilisateur'}</Text>
+          <Text style={styles.headerTitle}>{target.profile?.name ?? 'Utilisateur'}</Text>
         </Pressable>
       </View>
 

@@ -8,17 +8,19 @@ import type { Household, HouseholdMember, Profile } from './database.types';
 //
 //   bootstrapping             → lecture de la session au démarrage
 //   signed_out                → aucune session
-//   otp_pending                → inscription en cours, code envoyé, pas encore de session
-//   authenticated_no_household → session valide, email confirmé, AUCUN foyer
-//                                (état NORMAL, pas une erreur : l'utilisateur
-//                                vient de s'inscrire et n'a pas encore créé
-//                                ou rejoint de foyer)
+//   signup_otp_pending        → inscription en cours, code envoyé, pas encore de session
+//   signup_password_pending   → OTP validé, session ouverte, mais mot de
+//                                passe pas encore choisi (signUp() en a mis
+//                                un provisoire, jamais montré à l'utilisateur)
+//   authenticated_no_household → session valide, mot de passe défini, AUCUN
+//                                foyer (état NORMAL, pas une erreur)
 //   ready                      → session + foyer + rôle
 //   error                      → anomalie (accès désactivé, échec réseau...)
 export type AuthStatus =
   | 'bootstrapping'
   | 'signed_out'
-  | 'otp_pending'
+  | 'signup_otp_pending'
+  | 'signup_password_pending'
   | 'authenticated_no_household'
   | 'ready'
   | 'error';
@@ -50,9 +52,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Statut dérivé uniquement de la session Supabase (jamais de "otp_pending"
-// ici : avant validation du code, aucune session n'existe encore).
-type SessionStatus = 'bootstrapping' | 'signed_out' | 'authenticated_no_household' | 'ready' | 'error';
+// Statut dérivé uniquement de la session Supabase (jamais de
+// "signup_otp_pending" ici : avant validation du code, aucune session
+// n'existe encore).
+type SessionStatus =
+  | 'bootstrapping'
+  | 'signed_out'
+  | 'signup_password_pending'
+  | 'authenticated_no_household'
+  | 'ready'
+  | 'error';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('bootstrapping');
@@ -77,9 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Défense en profondeur : par construction (signUp + verifyOtp), une
-    // session n'existe jamais sans email confirmé. Si ce cas survient quand
-    // même (anomalie), on ne laisse pas l'app dans un état ambigu.
+    // Défense en profondeur : par construction (signUp/resetPassword +
+    // verifyOtp), une session n'existe jamais sans email confirmé. Si ce
+    // cas survient quand même (anomalie), on ne laisse pas l'app dans un
+    // état ambigu.
     if (!currentSession.user.email_confirmed_at) {
       authLog('anomaly_unconfirmed_session', { user_id: currentSession.user.id });
       setProfile(null);
@@ -90,26 +100,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Le profil est garanti par un trigger DB dès l'inscription (voir
-    // migration decouple_signup_household) : pas de création ici.
-    const { data: memberRow } = await supabase
-      .from('household_members')
-      .select('*')
-      .eq('profile_id', currentSession.user.id)
-      .limit(1)
-      .maybeSingle();
+    // Le profil est garanti par un trigger DB dès l'inscription.
+    const [{ data: profileRow }, { data: memberRow }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle(),
+      supabase.from('household_members').select('*').eq('profile_id', currentSession.user.id).limit(1).maybeSingle(),
+    ]);
+
+    setProfile(profileRow ?? null);
+
+    if (!profileRow?.password_set) {
+      // OTP validé mais mot de passe définitif pas encore choisi : bloque
+      // tout le reste tant que ce n'est pas fait, y compris l'accès à un
+      // foyer déjà existant (ne devrait jamais arriver ensemble, mais
+      // l'ordre de vérification reste défensif).
+      authLog('signup_password_pending', { user_id: currentSession.user.id });
+      setHousehold(null);
+      setMember(null);
+      setErrorMessage(null);
+      setSessionStatus('signup_password_pending');
+      return;
+    }
 
     if (!memberRow) {
-      // Compte authentifié, email confirmé, aucun foyer : état NORMAL.
+      // Compte authentifié, mot de passe défini, aucun foyer : état NORMAL.
       // On ne crée rien automatiquement — seul un clic explicite sur
-      // "Créer mon foyer" appelle create_household().
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentSession.user.id)
-        .maybeSingle();
+      // "Créer un foyer" appelle create_household().
       authLog('authenticated_no_household', { user_id: currentSession.user.id });
-      setProfile(profileRow ?? null);
       setHousehold(null);
       setMember(null);
       setErrorMessage(null);
@@ -118,13 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!memberRow.active) {
-      // Défense en profondeur (TEST désactivation) : un compte désactivé ne
-      // doit jamais rester "visuellement connecté" — RLS bloquera les
-      // données de toute façon, mais on ne laisse pas l'app dans un état
-      // ambigu.
+      // Défense en profondeur : un compte désactivé ne doit jamais rester
+      // "visuellement connecté" — RLS bloquera les données de toute façon,
+      // mais on ne laisse pas l'app dans un état ambigu.
       authLog('membership_inactive', { user_id: currentSession.user.id, household_id: memberRow.household_id });
       await supabase.auth.signOut();
-      setProfile(null);
       setHousehold(null);
       setMember(null);
       setErrorMessage('Votre accès a été désactivé par un administrateur.');
@@ -132,13 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const [{ data: profileRow }, { data: householdRow }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle(),
-      supabase.from('households').select('*').eq('id', memberRow.household_id).maybeSingle(),
-    ]);
+    const { data: householdRow } = await supabase.from('households').select('*').eq('id', memberRow.household_id).maybeSingle();
 
     authLog('ready', { user_id: currentSession.user.id, household_id: memberRow.household_id, role: memberRow.role });
-    setProfile(profileRow ?? null);
     setMember(memberRow);
     setHousehold(householdRow ?? null);
     setErrorMessage(null);
@@ -165,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [evaluate]);
 
-  const status: AuthStatus = pendingOtpEmail && sessionStatus === 'signed_out' ? 'otp_pending' : sessionStatus;
+  const status: AuthStatus = pendingOtpEmail && sessionStatus === 'signed_out' ? 'signup_otp_pending' : sessionStatus;
 
   const value = useMemo<AuthContextValue>(
     () => ({

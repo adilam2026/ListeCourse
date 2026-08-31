@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
+      user_metadata: { name: display_name },
     });
 
     if (createError || !created?.user) {
@@ -41,12 +42,15 @@ Deno.serve(async (req) => {
       return json({ error: isDup ? 'username_taken' : 'create_failed', detail: createError?.message }, 400);
     }
 
-    // Compensation si une étape suivante échoue : ne jamais laisser un
-    // compte auth orphelin (sans profil ni adhésion).
-    const { error: profileError } = await admin.from('profiles').insert({
-      id: created.user.id,
-      first_name: display_name,
-    });
+    // Le trigger on_auth_user_created a déjà créé la ligne profiles (à
+    // partir de user_metadata.name) au moment de l'insert ci-dessus : on la
+    // complète plutôt que d'en insérer une seconde. password_set=true car
+    // l'admin fournit un mot de passe réel immédiatement — ce compte
+    // secondaire ne passe jamais par l'écran "créer votre mot de passe".
+    const { error: profileError } = await admin
+      .from('profiles')
+      .update({ name: display_name, password_set: true })
+      .eq('id', created.user.id);
     if (profileError) {
       await admin.auth.admin.deleteUser(created.user.id);
       return json({ error: 'member_insert_failed', detail: profileError.message }, 400);
